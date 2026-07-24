@@ -34,8 +34,6 @@ def add(args):
         shutil.rmtree(out_dir)
     os.makedirs(out_dir)
 
-	#dunno if you can have opus or are we stuck with vorbis
-	#indeed we're stuck with vorbis
     codec = "libopus" if (args.opus or args.codec == "opus") else "libvorbis"
 
     bitrate, samplerate = args.bitrate, args.samplerate
@@ -66,6 +64,8 @@ def add(args):
     if not segs:
         die("ffmpeg produced no segments")
 
+    seg_sizes = [os.path.getsize(os.path.join(out_dir, s)) for s in segs]
+
     manifest = {
         "id": args.id,
         "title": args.title or args.id,
@@ -75,13 +75,12 @@ def add(args):
         "bitrate": bitrate,
         "samplerate": samplerate or "source",
         "channels": 1,
+        "segSizes": seg_sizes,
     }
     with open(os.path.join(out_dir, "manifest.json"), "w") as f:
         json.dump(manifest, f, indent=2)
 
-    total = sum(
-        os.path.getsize(os.path.join(out_dir, s)) for s in segs
-    ) / 1024.0
+    total = sum(seg_sizes) / 1024.0
     print(f"ok: {args.id} -> {len(segs)} segments (~{total:.0f} KiB total)")
     build_index()
 
@@ -95,10 +94,10 @@ def build_index():
             if os.path.isfile(mpath):
                 with open(mpath) as f:
                     m = json.load(f)
-                m["bytes"] = sum(
-                    os.path.getsize(os.path.join(tdir, s))
-                    for s in os.listdir(tdir) if s.endswith(".ogg")
-                )
+                segs = sorted(s for s in os.listdir(tdir) if s.endswith(".ogg"))
+                sizes = [os.path.getsize(os.path.join(tdir, s)) for s in segs]
+                m["segSizes"] = sizes
+                m["bytes"] = sum(sizes)
                 tracks.append(m)
 
     with open(os.path.join(ROOT, "index.json"), "w") as f:
@@ -107,10 +106,11 @@ def build_index():
     lines = ["-- paste me in STREAM.tracks in your script.lua",
              "tracks = {"]
     for t in tracks:
+        sizes_str = "{" + ", ".join(str(s) for s in t.get("segSizes", [])) + "}"
         lines.append(
             '    {{ id = "{id}", title = "{title}", segCount = {segCount}, '
-            'segSeconds = {segSeconds}, bytes = {bytes} }},'
-            .format(**t)
+            'segSeconds = {segSeconds}, bytes = {bytes}, segSizes = {sizes} }},'
+            .format(sizes=sizes_str, **t)
         )
     lines.append("}")
     with open(os.path.join(ROOT, "boombox_tracks.lua"), "w") as f:
@@ -154,17 +154,22 @@ def ping_report(budget, chunk, overhead):
         with open(mpath) as f:
             m = json.load(f)
         segs = [s for s in os.listdir(tdir) if s.endswith(".ogg")]
-        raw = sum(os.path.getsize(os.path.join(tdir, s)) for s in segs)
+        sizes = [os.path.getsize(os.path.join(tdir, s)) for s in segs]
+        raw = sum(sizes)
         wire = raw * PACK_EXPANSION
         play_sec = m["segCount"] * m["segSeconds"]
         send_sec = wire / eff_wire
         factor = send_sec / play_sec if play_sec else float("inf")
         avg_kbps = (raw * 8 / play_sec) / 1000.0 if play_sec else 0
 
+        first_seg_wire = (sizes[0] if sizes else 0) * PACK_EXPANSION
+        first_seg_send = first_seg_wire / eff_wire if eff_wire else 0
+        preroll_exact = max(first_seg_send, send_sec - (m["segCount"] - 1) * m["segSeconds"])
+
         if factor <= 1.0:
-            verdict = "OK: streams live over pings"
+            verdict = f"OK: streams live (preroll ~{_fmt_time(preroll_exact)})"
         elif factor <= 3.0:
-            verdict = f"preload only (~{_fmt_time(send_sec)} before play)"
+            verdict = f"preload required (~{_fmt_time(preroll_exact)} preroll)"
         else:
             verdict = f"TOO BIG for pings ({factor:.0f}x real-time)"
 
@@ -186,7 +191,7 @@ def main():
     a.add_argument("--id", required=True, help="url-safe id, e.g. 'cat', 'cool_music'")
     a.add_argument("--title", default=None)
     a.add_argument("--seconds", type=int, default=3, help="segment length")
-    a.add_argument("--bitrate", default="96k", help="e.g. 96k, 128k (ping mode: 12k)")
+    a.add_argument("--bitrate", default="96k", help="e.g. 96k, 128k (for ping mode it's 12k)")
     a.add_argument("--samplerate", type=int, default=None,
                    help="downsample Hz (e.g. 12000)")
     a.add_argument("--ping", action="store_true",
@@ -194,7 +199,7 @@ def main():
     a.add_argument("--codec", choices=["vorbis", "opus"], default="vorbis",
                    help="unused for now, left here because in the future Figura may add opus support")
     a.add_argument("--opus", action="store_true",
-                   help="shorthand: opus @ 8k — the only path to full songs over pings")
+                   help="basically just --codec opus")
     a.set_defaults(func=add)
 
     i = sub.add_parser("index", help="rebuild index.json + boombox_tracks.lua")
@@ -202,7 +207,7 @@ def main():
 
     c = sub.add_parser("plan", help="ping time-to-send calculator for all tracks")
     c.add_argument("--budget", type=int, default=900,
-                   help="bytes/sec to spend on audio pings (<1024, keep margin)")
+                   help="bytes/sec to spend on audio pings (<1024)")
     c.add_argument("--chunk", type=int, default=200,
                    help="base64 chars per ping (payload size)")
     c.add_argument("--overhead", type=int, default=9,

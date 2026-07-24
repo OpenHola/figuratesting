@@ -8,17 +8,34 @@
     "bitrate": "8k",
     "samplerate": 8000,
     "channels": 1,
+    "segSizes": [
+      164280,
+      140352
+    ],
     "bytes": 304632
   },
   {
     "id": "troubled_plains",
     "title": "Troubled Plains",
-    "segCount": 6,
-    "segSeconds": 30,
+    "segCount": 11,
+    "segSeconds": 15,
     "codec": "libvorbis",
     "bitrate": "8k",
     "samplerate": 8000,
     "channels": 1,
-    "bytes": 210717
+    "segSizes": [
+      21292,
+      21258,
+      21247,
+      22034,
+      21993,
+      22499,
+      21209,
+      20976,
+      22130,
+      21873,
+      6001
+    ],
+    "bytes": 222512
   }
 ]
