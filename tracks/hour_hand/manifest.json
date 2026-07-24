@@ -1,8 +1,10 @@
 {
   "id": "hour_hand",
   "title": "HOUR HAND - Remix",
-  "segCount": 75,
-  "segSeconds": 3,
-  "bitrate": "96k",
+  "segCount": 32,
+  "segSeconds": 7,
+  "codec": "libopus",
+  "bitrate": "12k",
+  "samplerate": "source",
   "channels": 1
 }
