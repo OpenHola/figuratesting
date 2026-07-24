@@ -1,8 +1,8 @@
 {
   "id": "troubled_plains",
   "title": "Troubled Plains",
-  "segCount": 2,
-  "segSeconds": 120,
+  "segCount": 6,
+  "segSeconds": 30,
   "codec": "libvorbis",
   "bitrate": "8k",
   "samplerate": 8000,

@@ -90,10 +90,16 @@ def build_index():
     tracks = []
     if os.path.isdir(TRACKS):
         for tid in sorted(os.listdir(TRACKS)):
-            mpath = os.path.join(TRACKS, tid, "manifest.json")
+            tdir = os.path.join(TRACKS, tid)
+            mpath = os.path.join(tdir, "manifest.json")
             if os.path.isfile(mpath):
                 with open(mpath) as f:
-                    tracks.append(json.load(f))
+                    m = json.load(f)
+                m["bytes"] = sum(
+                    os.path.getsize(os.path.join(tdir, s))
+                    for s in os.listdir(tdir) if s.endswith(".ogg")
+                )
+                tracks.append(m)
 
     with open(os.path.join(ROOT, "index.json"), "w") as f:
         json.dump(tracks, f, indent=2)
@@ -102,7 +108,8 @@ def build_index():
              "tracks = {"]
     for t in tracks:
         lines.append(
-            '    {{ id = "{id}", title = "{title}", segCount = {segCount}, segSeconds = {segSeconds} }},'
+            '    {{ id = "{id}", title = "{title}", segCount = {segCount}, '
+            'segSeconds = {segSeconds}, bytes = {bytes} }},'
             .format(**t)
         )
     lines.append("}")
