@@ -35,14 +35,15 @@ def add(args):
     os.makedirs(out_dir)
 
 	#dunno if you can have opus or are we stuck with vorbis
+	#indeed we're stuck with vorbis
     codec = "libopus" if (args.opus or args.codec == "opus") else "libvorbis"
 
     bitrate, samplerate = args.bitrate, args.samplerate
     if args.opus and args.bitrate == "96k":
         bitrate = "8k"
     elif args.ping:
-        bitrate = bitrate if args.bitrate != "96k" else "12k"
-        samplerate = samplerate or 12000
+        bitrate = bitrate if args.bitrate != "96k" else "8k"
+        samplerate = samplerate or 8000
     if codec == "libopus":
         samplerate = None
 
@@ -113,7 +114,7 @@ def build_index():
 
 
 PING_HARD_LIMIT = 1024
-BASE64_EXPANSION = 4.0 / 3.0
+PACK_EXPANSION = 8.0 / 7.0
 
 
 def _fmt_time(sec):
@@ -123,13 +124,13 @@ def _fmt_time(sec):
 
 
 def ping_report(budget, chunk, overhead):
-    eff_b64 = budget * (chunk / (chunk + overhead))
-    eff_raw = eff_b64 / BASE64_EXPANSION
+    eff_wire = budget * (chunk / (chunk + overhead))
+    eff_raw = eff_wire / PACK_EXPANSION
     pings_per_sec = budget / (chunk + overhead)
     max_kbps = eff_raw * 8 / 1000.0
 
     print(f"PING DELIVERY PLAN  (budget {budget} B/s of {PING_HARD_LIMIT}, "
-          f"{chunk} b64 chars/ping, ~{overhead} B overhead)")
+          f"{chunk} packed chars/ping, ~{overhead} B overhead, base127 {PACK_EXPANSION:.3f}x)")
     print(f"  ~{pings_per_sec:.1f} pings/sec (cap 32), "
           f"delivering ~{eff_raw:.0f} B/s of audio")
     print(f"  => real-time ping streaming needs audio <= ~{max_kbps:.1f} kbps mono")
@@ -147,9 +148,9 @@ def ping_report(budget, chunk, overhead):
             m = json.load(f)
         segs = [s for s in os.listdir(tdir) if s.endswith(".ogg")]
         raw = sum(os.path.getsize(os.path.join(tdir, s)) for s in segs)
-        b64 = raw * BASE64_EXPANSION
+        wire = raw * PACK_EXPANSION
         play_sec = m["segCount"] * m["segSeconds"]
-        send_sec = b64 / eff_b64
+        send_sec = wire / eff_wire
         factor = send_sec / play_sec if play_sec else float("inf")
         avg_kbps = (raw * 8 / play_sec) / 1000.0 if play_sec else 0
 
@@ -163,7 +164,7 @@ def ping_report(budget, chunk, overhead):
         print(f"\n  {tid}  ({m.get('title', tid)})")
         print(f"    {m['segCount']} segs x {m['segSeconds']}s = "
               f"{_fmt_time(play_sec)} audio @ ~{avg_kbps:.0f} kbps")
-        print(f"    raw {raw/1024:.0f} KiB -> base64 {b64/1024:.0f} KiB")
+        print(f"    raw {raw/1024:.0f} KiB -> wire {wire/1024:.0f} KiB")
         print(f"    ping send time: {_fmt_time(send_sec)}  "
               f"({factor:.1f}x real-time)  ->  {verdict}")
     print()
@@ -182,9 +183,9 @@ def main():
     a.add_argument("--samplerate", type=int, default=None,
                    help="downsample Hz (e.g. 12000)")
     a.add_argument("--ping", action="store_true",
-                   help="low-fi vorbis preset for ping delivery (12k @ 12000 Hz)")
+                   help="lowest-fi vorbis preset for ping delivery (8k @ 8000 Hz)")
     a.add_argument("--codec", choices=["vorbis", "opus"], default="vorbis",
-                   help="vorbis (always plays) or opus (3x smaller, test in-game)")
+                   help="unused for now, left here because in the future Figura may add opus support")
     a.add_argument("--opus", action="store_true",
                    help="shorthand: opus @ 8k — the only path to full songs over pings")
     a.set_defaults(func=add)

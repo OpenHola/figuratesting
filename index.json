@@ -2,19 +2,21 @@
   {
     "id": "hour_hand",
     "title": "HOUR HAND - Remix",
-    "segCount": 32,
-    "segSeconds": 7,
-    "codec": "libopus",
-    "bitrate": "12k",
-    "samplerate": "source",
+    "segCount": 2,
+    "segSeconds": 120,
+    "codec": "libvorbis",
+    "bitrate": "8k",
+    "samplerate": 8000,
     "channels": 1
   },
   {
     "id": "troubled_plains",
     "title": "Troubled Plains",
-    "segCount": 52,
-    "segSeconds": 3,
-    "bitrate": "96k",
+    "segCount": 2,
+    "segSeconds": 120,
+    "codec": "libvorbis",
+    "bitrate": "8k",
+    "samplerate": 8000,
     "channels": 1
   }
 ]
