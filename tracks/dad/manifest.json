@@ -1,0 +1,14 @@
+{
+  "id": "dad",
+  "title": "Your Dad's Best Friend",
+  "segCount": 2,
+  "segSeconds": 15,
+  "codec": "libvorbis",
+  "bitrate": "8k",
+  "samplerate": 8000,
+  "channels": 1,
+  "segSizes": [
+    19967,
+    18240
+  ]
+}
